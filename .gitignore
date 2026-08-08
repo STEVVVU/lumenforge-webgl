@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+.vite/
+.chrome-profile/
+*.log
+.DS_Store
+artifacts/*.png
+!artifacts/.gitkeep
