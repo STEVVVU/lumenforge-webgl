@@ -138,7 +138,7 @@ function HierarchyPanel({
         <Box />
         <div>
           <strong>{scene.name}</strong>
-          <span>{scene.objects.length} objects · {scene.meshes.length} meshes</span>
+          <span>{scene.objects.length} objects / {scene.meshes.length} meshes</span>
         </div>
       </div>
       <div className="object-list">
@@ -310,8 +310,12 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [contextMessage, setContextMessage] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [hierarchyOpen, setHierarchyOpen] = useState(true);
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [hierarchyOpen, setHierarchyOpen] = useState(
+    () => window.matchMedia("(min-width: 701px)").matches,
+  );
+  const [inspectorOpen, setInspectorOpen] = useState(
+    () => window.matchMedia("(min-width: 701px)").matches,
+  );
   const [exposure, setExposure] = useState(1);
   const [shadows, setShadows] = useState(true);
   const [animate, setAnimate] = useState(true);
@@ -402,6 +406,16 @@ export function App() {
     viewerRef.current?.select(object);
   };
 
+  const openHierarchy = () => {
+    setHierarchyOpen(true);
+    if (window.matchMedia("(max-width: 700px)").matches) setInspectorOpen(false);
+  };
+
+  const openInspector = () => {
+    setInspectorOpen(true);
+    if (window.matchMedia("(max-width: 700px)").matches) setHierarchyOpen(false);
+  };
+
   return (
     <main
       className="app-shell"
@@ -432,7 +446,7 @@ export function App() {
         </div>
         <nav className="top-actions" aria-label="Viewport actions">
           {!hierarchyOpen && (
-            <IconButton label="Open hierarchy" onClick={() => setHierarchyOpen(true)}>
+            <IconButton label="Open hierarchy" onClick={openHierarchy}>
               <PanelLeftOpen />
             </IconButton>
           )}
@@ -453,7 +467,7 @@ export function App() {
             {animate ? <Pause /> : <Play />}
           </IconButton>
           {!inspectorOpen && (
-            <IconButton label="Open inspector" onClick={() => setInspectorOpen(true)}>
+            <IconButton label="Open inspector" onClick={openInspector}>
               <PanelRightOpen />
             </IconButton>
           )}
@@ -514,7 +528,7 @@ export function App() {
 
       <div className="viewport-status">
         <CircleGauge />
-        <span>{stats.width} × {stats.height}</span>
+        <span>{stats.width} x {stats.height}</span>
         <span>{stats.visibleObjects}/{stats.visibleObjects + stats.culledObjects} visible</span>
         <span>{stats.lights} lights</span>
       </div>
