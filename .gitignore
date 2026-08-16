@@ -6,4 +6,9 @@ coverage/
 *.log
 .DS_Store
 artifacts/*.png
+artifacts/*.json
 !artifacts/.gitkeep
+!artifacts/browser-desktop.png
+!artifacts/browser-mobile.png
+!artifacts/browser-gltf.png
+!artifacts/browser-verification.json

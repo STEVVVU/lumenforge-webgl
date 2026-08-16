@@ -1,0 +1,97 @@
+{
+  "generatedAt": "2026-07-17T05:21:40.992Z",
+  "chromePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "desktop": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "canvas": {
+      "webgl2": true,
+      "width": 1440,
+      "height": 900,
+      "cssWidth": 1440,
+      "cssHeight": 900,
+      "nonBlankRatio": 1,
+      "distinct": 288,
+      "renderer": "WebKit WebGL"
+    },
+    "resizedCanvas": {
+      "webgl2": true,
+      "width": 1303,
+      "height": 817,
+      "cssWidth": 1303,
+      "cssHeight": 817,
+      "nonBlankRatio": 1,
+      "distinct": 278,
+      "renderer": "WebKit WebGL"
+    },
+    "panelCount": 2,
+    "source": "benchmark",
+    "selectionWorked": true,
+    "contextRecovery": "restored",
+    "consoleErrors": []
+  },
+  "mobile": {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "canvas": {
+      "webgl2": true,
+      "width": 390,
+      "height": 844,
+      "cssWidth": 390,
+      "cssHeight": 844,
+      "nonBlankRatio": 1,
+      "distinct": 244,
+      "renderer": "WebKit WebGL"
+    },
+    "resizedCanvas": {
+      "webgl2": true,
+      "width": 320,
+      "height": 761,
+      "cssWidth": 320,
+      "cssHeight": 761,
+      "nonBlankRatio": 1,
+      "distinct": 245,
+      "renderer": "WebKit WebGL"
+    },
+    "panelCount": 0,
+    "source": "benchmark",
+    "selectionWorked": null,
+    "contextRecovery": null,
+    "consoleErrors": []
+  },
+  "gltf": {
+    "viewport": {
+      "width": 1024,
+      "height": 720
+    },
+    "canvas": {
+      "webgl2": true,
+      "width": 1024,
+      "height": 720,
+      "cssWidth": 1024,
+      "cssHeight": 720,
+      "nonBlankRatio": 0.8787878787878788,
+      "distinct": 5,
+      "renderer": "WebKit WebGL"
+    },
+    "resizedCanvas": {
+      "webgl2": true,
+      "width": 887,
+      "height": 637,
+      "cssWidth": 887,
+      "cssHeight": 637,
+      "nonBlankRatio": 0.8823529411764706,
+      "distinct": 5,
+      "renderer": "WebKit WebGL"
+    },
+    "panelCount": 2,
+    "source": "gltf-fixture",
+    "selectionWorked": null,
+    "contextRecovery": null,
+    "consoleErrors": []
+  }
+}
