@@ -22,7 +22,13 @@ Production verification:
 
 ```powershell
 npm run verify
+npm run browser:verify
 ```
+
+The browser command requires Chrome (set `CHROME_PATH` for a nonstandard
+installation) and writes reviewable evidence to `artifacts/`.
+
+![LumenForge deterministic material inspection scene](artifacts/browser-desktop.png)
 
 ## Architecture
 
@@ -66,16 +72,26 @@ The G-buffer stores:
 2. encoded world normal and perceptual roughness;
 3. depth for world-position reconstruction.
 
-A 2048² directional map supplies 3x3 PCF shadows. The deferred pass supports 32
+A 2048 x 2048 directional map supplies 3x3 PCF shadows. The deferred pass supports 32
 directional/point lights and avoids redrawing geometry per light.
 
 ## Measured evidence
 
-No performance number is claimed without a recorded run. Verification commands,
-tool versions, build output, and browser pixel checks are written to
-[`artifacts/verification.txt`](artifacts/verification.txt) after execution.
-GPU duration appears in the application only when
-`EXT_disjoint_timer_query_webgl2` is supported.
+The checked-in [verification record](artifacts/verification.md) and
+[machine-readable browser results](artifacts/browser-verification.json) were
+captured on 2026-07-16:
+
+- ESLint and TypeScript passed; Vitest passed 9 tests across 3 files.
+- Vite emitted 211.75 kB JavaScript (66.26 kB gzip) and 9.59 kB CSS
+  (2.70 kB gzip).
+- Chrome rendered nonblank WebGL2 canvases at 1440 x 900 desktop, 390 x 844
+  mobile, and 1024 x 720 glTF-fixture viewports with zero console errors.
+- Automation verified backing-buffer resize, benchmark picking, glTF upload,
+  debug-buffer switching, and `WEBGL_lose_context` restoration.
+
+Headless Chrome uses SwiftShader in this check, so its FPS and GPU timer values
+are intentionally not presented as hardware performance measurements. Runtime
+GPU duration appears only when `EXT_disjoint_timer_query_webgl2` is available.
 
 ## Compatibility and limitations
 
@@ -94,13 +110,14 @@ GPU duration appears in the application only when
 
 - Built a WebGL2 glTF asset inspector with a two-target deferred
   metallic-roughness renderer, GGX lighting for up to 32 lights, PCF shadow
-  mapping, and demand-driven GPU object picking.
+  mapping, and demand-driven GPU picking, exercised by a deterministic
+  50-object/13-light workload.
 - Implemented a bounded glTF/GLB pipeline with accessor validation, hierarchy
   transforms, texture decoding, generated normals, deterministic benchmark
-  content, and explicit unsupported-feature diagnostics.
-- Added frustum culling, asynchronous GPU timer queries, CPU/frame telemetry,
-  responsive buffer allocation, context-loss reconstruction, unit tests, and
-  automated lint/typecheck/test/build CI.
+  content, a 128 MB input ceiling, and explicit unsupported-feature diagnostics.
+- Added frustum culling, asynchronous GPU timers, and context reconstruction;
+  automated 9 unit tests plus WebGL checks at desktop/mobile viewports with
+  verified picking, resize, glTF upload, and zero console errors.
 
 ## License
 

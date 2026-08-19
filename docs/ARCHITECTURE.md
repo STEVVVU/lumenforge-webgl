@@ -84,4 +84,12 @@ Node-based tests cover matrix inversion/composition, conservative transformed
 bounds, frustum inclusion, deterministic workload generation, glTF accessor
 parsing, generated normals, unsupported topology errors, and GLB chunk parsing.
 Browser verification separately checks real shader compilation and nonblank
-canvas output because those require a WebGL2 implementation.
+canvas output because those require a WebGL2 implementation. The Chrome harness
+also exercises a self-contained glTF upload, GPU picking, debug-buffer
+switching, drawing-buffer resize, mobile panel layout, and simulated context
+loss/restoration. Screenshots and structured results are retained in
+`artifacts/` for review.
+
+The automated browser path forces SwiftShader for deterministic availability.
+Its frame and timer values are not treated as hardware benchmarks; only
+functional rendering evidence is claimed from that environment.
