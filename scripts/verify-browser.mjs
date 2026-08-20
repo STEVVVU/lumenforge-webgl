@@ -194,7 +194,17 @@ try {
       height: Math.max(480, viewport.height - 83),
     };
     await page.setViewportSize(resizedViewport);
-    await page.waitForTimeout(250);
+    await page.waitForFunction(
+      ({ previousWidth, previousHeight }) => {
+        const element = document.querySelector("canvas");
+        return (
+          element &&
+          (element.width !== previousWidth || element.height !== previousHeight)
+        );
+      },
+      { previousWidth: canvas.width, previousHeight: canvas.height },
+      { timeout: 5_000 },
+    );
     const resizedCanvas = await sampleCanvas(page);
     assertCanvas(resizedCanvas, resizedViewport, minimumDistinct);
     if (
@@ -204,7 +214,20 @@ try {
       throw new Error("Canvas backing buffer did not respond to viewport resize.");
     }
     await page.setViewportSize(viewport);
-    await page.waitForTimeout(250);
+    await page.waitForFunction(
+      ({ resizedWidth, resizedHeight }) => {
+        const element = document.querySelector("canvas");
+        return (
+          element &&
+          (element.width !== resizedWidth || element.height !== resizedHeight)
+        );
+      },
+      {
+        resizedWidth: resizedCanvas.width,
+        resizedHeight: resizedCanvas.height,
+      },
+      { timeout: 5_000 },
+    );
 
     let selectionWorked = null;
     let contextRecovery = null;

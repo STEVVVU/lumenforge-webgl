@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-17T05:21:40.992Z",
+  "generatedAt": "2026-07-17T05:47:22.380Z",
   "chromePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "desktop": {
     "viewport": {
@@ -13,7 +13,7 @@
       "cssWidth": 1440,
       "cssHeight": 900,
       "nonBlankRatio": 1,
-      "distinct": 288,
+      "distinct": 287,
       "renderer": "WebKit WebGL"
     },
     "resizedCanvas": {
@@ -44,7 +44,7 @@
       "cssWidth": 390,
       "cssHeight": 844,
       "nonBlankRatio": 1,
-      "distinct": 244,
+      "distinct": 237,
       "renderer": "WebKit WebGL"
     },
     "resizedCanvas": {
@@ -54,7 +54,7 @@
       "cssWidth": 320,
       "cssHeight": 761,
       "nonBlankRatio": 1,
-      "distinct": 245,
+      "distinct": 238,
       "renderer": "WebKit WebGL"
     },
     "panelCount": 0,
