@@ -2,11 +2,11 @@ import { extractFrustumPlanes, sphereIntersectsFrustum } from "./frustum";
 import { assertFramebuffer, createProgram, uniform } from "./gl";
 import { GpuTimer } from "./gpuTimer";
 import {
+  mat3NormalFromMat4,
   mat4Invert,
   mat4LookAt,
   mat4Multiply,
   mat4Ortho,
-  mat4Transpose,
   vec3Normalize,
   vec3Scale,
   vec3Subtract,
@@ -533,13 +533,13 @@ export class Renderer {
     this.selectedObjectId = id;
   }
 
+  /**
+   * Inverse-transpose of the model matrix' upper-left 3x3, so normals stay
+   * perpendicular to the surface under non-uniform scale. Column-major 3x3 for
+   * `uniformMatrix3fv(..., transpose = false)`.
+   */
   private normalMatrix(model: Float32Array): Float32Array {
-    const transposed = mat4Transpose(mat4Invert(model));
-    return new Float32Array([
-      transposed[0]!, transposed[1]!, transposed[2]!,
-      transposed[4]!, transposed[5]!, transposed[6]!,
-      transposed[8]!, transposed[9]!, transposed[10]!,
-    ]);
+    return mat3NormalFromMat4(model);
   }
 
   private drawObject(object: SceneObject): void {
@@ -563,6 +563,7 @@ export class Renderer {
       0.1,
       radius * 5,
     );
+    // Pre-multiplication: world -> light view -> light clip.
     return mat4Multiply(projection, view);
   }
 
@@ -579,6 +580,7 @@ export class Renderer {
     const gl = this.gl;
     const projection = camera.projectionMatrix(this.width / this.height);
     const view = camera.viewMatrix();
+    // Pre-multiplication: `view` is applied first, then `projection`.
     const viewProjection = mat4Multiply(projection, view);
     this.lastViewProjection = viewProjection;
     const inverseViewProjection = mat4Invert(viewProjection);

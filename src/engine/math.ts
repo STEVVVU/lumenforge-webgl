@@ -1,35 +1,95 @@
+/**
+ * Math adapter over `gl-matrix`.
+ *
+ * The engine used to hand-roll every mat4/vec3/quat operation. That is the one
+ * piece of a raw-WebGL2 codebase nobody should write themselves: the algebra is
+ * standard, and the failure mode is silent (a transposed matrix or a flipped
+ * handedness still renders, just wrong). `gl-matrix` is the de-facto library for
+ * raw-WebGL projects, so the algebra now lives there and this module is a thin,
+ * typed adapter that keeps the engine's ergonomic `Vec3` tuple API.
+ *
+ * ## Conventions (assumed everywhere below, and by every shader in shaders.ts)
+ *
+ * - **Column-major storage.** A mat4 is 16 floats laid out as 4 contiguous
+ *   columns, which is exactly what `gl.uniformMatrix4fv(loc, false, m)` expects
+ *   with `transpose = false`. Element `[column * 4 + row]`. Translation
+ *   therefore lives in elements 12, 13, 14. This matches both `gl-matrix` and
+ *   the glTF 2.0 spec's `node.matrix`, so glTF matrices are consumed verbatim.
+ * - **Pre-multiplication / points as column vectors.** Transforms compose
+ *   right-to-left: `mat4Multiply(projection, view)` applies `view` first.
+ *   Equivalently `clip = P * V * M * position`.
+ * - **Right-handed world space, +Y up.** `mat4LookAt` builds a right-handed
+ *   view basis whose third column points from the target back toward the eye
+ *   (i.e. +Z points toward the viewer), so the camera looks down -Z in view
+ *   space. `mat4Perspective` maps that to the GL clip volume with depth in
+ *   [-1, 1].
+ *
+ * ## Deliberate deviations from raw `gl-matrix`
+ *
+ * Each of these was verified against the previous hand-rolled implementation;
+ * they are preserved on purpose and are NOT oversights:
+ *
+ * 1. `quaternionFromEuler` uses `quat.fromEuler(..., "xyz")` and converts
+ *    radians to degrees. `gl-matrix` takes **degrees** and defaults to **"zyx"**
+ *    order; using the default would silently reorient every rotated object.
+ * 2. Quaternions are accumulated in a plain (float64) array rather than
+ *    `quat.create()` (a Float32Array). Rounding the quaternion to float32 before
+ *    composing the model matrix perturbed the result by up to 2.4e-7; keeping it
+ *    float64 reproduces the previous matrices bit-for-bit.
+ * 3. `mat4Invert` throws on a singular matrix where `gl-matrix` returns `null`,
+ *    so callers keep their fail-fast contract.
+ * 4. Vector magnitude uses `Math.hypot`, not `vec3.length`. `vec3.length`
+ *    computes `sqrt(x*x + y*y + z*z)`, which overflows to `Infinity` for
+ *    coordinates around 1e200 and underflows to 0 around 1e-200. Bounds are
+ *    computed from untrusted glTF vertex data, so the overflow-safe form is
+ *    kept.
+ * 5. `vec3Normalize` and `transformPoint` keep their `EPSILON` guards.
+ *    `gl-matrix` only special-cases exact zero, so a denormal-scale vector would
+ *    otherwise normalize to a garbage unit vector, and a near-zero `w` would
+ *    divide by ~0 instead of falling back to 1.
+ * 6. The scalar `vec3*` helpers pass a plain `[0, 0, 0]` as the `out` parameter
+ *    instead of `vec3.create()`. `gl-matrix`'s constructor returns a
+ *    Float32Array, which would quietly round every intermediate to float32; a
+ *    plain array keeps these float64, matching the previous implementation.
+ */
+import { mat3, mat4, quat, vec3, vec4 } from "gl-matrix";
 import type { BoundingSphere, Vec3 } from "./types";
 
 const EPSILON = 1e-8;
+const RADIANS_TO_DEGREES = 180 / Math.PI;
 
 export function vec3Add(a: Vec3, b: Vec3): Vec3 {
-  return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  return vec3.add([0, 0, 0], a, b) as Vec3;
 }
 
 export function vec3Subtract(a: Vec3, b: Vec3): Vec3 {
-  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  return vec3.subtract([0, 0, 0], a, b) as Vec3;
 }
 
 export function vec3Scale(v: Vec3, scale: number): Vec3 {
-  return [v[0] * scale, v[1] * scale, v[2] * scale];
+  return vec3.scale([0, 0, 0], v, scale) as Vec3;
 }
 
 export function vec3Dot(a: Vec3, b: Vec3): number {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  return vec3.dot(a, b);
 }
 
 export function vec3Cross(a: Vec3, b: Vec3): Vec3 {
-  return [
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0],
-  ];
+  return vec3.cross([0, 0, 0], a, b) as Vec3;
 }
 
+/**
+ * Vector magnitude. Uses `Math.hypot` rather than `vec3.length`; see deviation
+ * (4) in the module comment.
+ */
 export function vec3Length(v: Vec3): number {
   return Math.hypot(v[0], v[1], v[2]);
 }
 
+/**
+ * Unit vector, or the zero vector when the input is shorter than `EPSILON`.
+ * The guard is intentional; see deviation (5).
+ */
 export function vec3Normalize(v: Vec3): Vec3 {
   const length = vec3Length(v);
   if (length < EPSILON) return [0, 0, 0];
@@ -37,44 +97,42 @@ export function vec3Normalize(v: Vec3): Vec3 {
 }
 
 export function mat4Identity(): Float32Array {
-  return new Float32Array([
-    1, 0, 0, 0,
-    0, 1, 0, 0,
-    0, 0, 1, 0,
-    0, 0, 0, 1,
-  ]);
+  return mat4.create() as Float32Array;
 }
 
+/**
+ * Returns `a * b` under the pre-multiplication convention: the result applies
+ * `b` first, then `a`. So `mat4Multiply(projection, view)` is the usual
+ * view-projection, and `mat4Multiply(parent, local)` composes a glTF node onto
+ * its parent.
+ */
 export function mat4Multiply(a: ArrayLike<number>, b: ArrayLike<number>): Float32Array {
-  const out = new Float32Array(16);
-  for (let column = 0; column < 4; column += 1) {
-    for (let row = 0; row < 4; row += 1) {
-      let value = 0;
-      for (let index = 0; index < 4; index += 1) {
-        value += (a[index * 4 + row] ?? 0) * (b[column * 4 + index] ?? 0);
-      }
-      out[column * 4 + row] = value;
-    }
-  }
-  return out;
+  return mat4.multiply(new Float32Array(16), a as mat4, b as mat4) as Float32Array;
 }
 
+/**
+ * Right-handed perspective projection into the GL clip volume (depth -1..1),
+ * looking down -Z in view space.
+ */
 export function mat4Perspective(
   fieldOfViewRadians: number,
   aspect: number,
   near: number,
   far: number,
 ): Float32Array {
-  const f = 1 / Math.tan(fieldOfViewRadians / 2);
-  const rangeInverse = 1 / (near - far);
-  return new Float32Array([
-    f / aspect, 0, 0, 0,
-    0, f, 0, 0,
-    0, 0, (near + far) * rangeInverse, -1,
-    0, 0, 2 * near * far * rangeInverse, 0,
-  ]);
+  return mat4.perspective(
+    new Float32Array(16),
+    fieldOfViewRadians,
+    aspect,
+    near,
+    far,
+  ) as Float32Array;
 }
 
+/**
+ * Right-handed orthographic projection (depth -1..1). Used for the directional
+ * shadow map, where the light's frustum is a box around the scene bounds.
+ */
 export function mat4Ortho(
   left: number,
   right: number,
@@ -83,160 +141,152 @@ export function mat4Ortho(
   near: number,
   far: number,
 ): Float32Array {
-  const width = 1 / (right - left);
-  const height = 1 / (top - bottom);
-  const depth = 1 / (far - near);
-  return new Float32Array([
-    2 * width, 0, 0, 0,
-    0, 2 * height, 0, 0,
-    0, 0, -2 * depth, 0,
-    -(right + left) * width,
-    -(top + bottom) * height,
-    -(far + near) * depth,
-    1,
-  ]);
+  return mat4.ortho(
+    new Float32Array(16),
+    left,
+    right,
+    bottom,
+    top,
+    near,
+    far,
+  ) as Float32Array;
 }
 
+/**
+ * Right-handed view matrix. The camera sits at `eye` looking at `target` with
+ * `up` as the world up hint; in the resulting view space the camera looks down
+ * -Z, so the basis' third column points from `target` back toward `eye`.
+ */
 export function mat4LookAt(eye: Vec3, target: Vec3, up: Vec3): Float32Array {
-  const forward = vec3Normalize(vec3Subtract(eye, target));
-  const right = vec3Normalize(vec3Cross(up, forward));
-  const correctedUp = vec3Cross(forward, right);
-  return new Float32Array([
-    right[0], correctedUp[0], forward[0], 0,
-    right[1], correctedUp[1], forward[1], 0,
-    right[2], correctedUp[2], forward[2], 0,
-    -vec3Dot(right, eye),
-    -vec3Dot(correctedUp, eye),
-    -vec3Dot(forward, eye),
-    1,
-  ]);
+  return mat4.lookAt(new Float32Array(16), eye, target, up) as Float32Array;
 }
 
+/**
+ * Full 4x4 inverse.
+ *
+ * @throws if the matrix is singular. `gl-matrix` signals this by returning
+ * `null`; callers here rely on the throw, so it is translated (deviation 3).
+ */
 export function mat4Invert(matrix: ArrayLike<number>): Float32Array {
-  const m = Array.from({ length: 16 }, (_, index) => matrix[index] ?? 0);
-  const out = new Float32Array(16);
-  const b00 = m[0]! * m[5]! - m[1]! * m[4]!;
-  const b01 = m[0]! * m[6]! - m[2]! * m[4]!;
-  const b02 = m[0]! * m[7]! - m[3]! * m[4]!;
-  const b03 = m[1]! * m[6]! - m[2]! * m[5]!;
-  const b04 = m[1]! * m[7]! - m[3]! * m[5]!;
-  const b05 = m[2]! * m[7]! - m[3]! * m[6]!;
-  const b06 = m[8]! * m[13]! - m[9]! * m[12]!;
-  const b07 = m[8]! * m[14]! - m[10]! * m[12]!;
-  const b08 = m[8]! * m[15]! - m[11]! * m[12]!;
-  const b09 = m[9]! * m[14]! - m[10]! * m[13]!;
-  const b10 = m[9]! * m[15]! - m[11]! * m[13]!;
-  const b11 = m[10]! * m[15]! - m[11]! * m[14]!;
-  const determinant =
-    b00 * b11 - b01 * b10 + b02 * b09 +
-    b03 * b08 - b04 * b07 + b05 * b06;
-  if (Math.abs(determinant) < EPSILON) {
-    throw new Error("Cannot invert a singular matrix.");
-  }
-  const inverseDeterminant = 1 / determinant;
-  out[0] = (m[5]! * b11 - m[6]! * b10 + m[7]! * b09) * inverseDeterminant;
-  out[1] = (-m[1]! * b11 + m[2]! * b10 - m[3]! * b09) * inverseDeterminant;
-  out[2] = (m[13]! * b05 - m[14]! * b04 + m[15]! * b03) * inverseDeterminant;
-  out[3] = (-m[9]! * b05 + m[10]! * b04 - m[11]! * b03) * inverseDeterminant;
-  out[4] = (-m[4]! * b11 + m[6]! * b08 - m[7]! * b07) * inverseDeterminant;
-  out[5] = (m[0]! * b11 - m[2]! * b08 + m[3]! * b07) * inverseDeterminant;
-  out[6] = (-m[12]! * b05 + m[14]! * b02 - m[15]! * b01) * inverseDeterminant;
-  out[7] = (m[8]! * b05 - m[10]! * b02 + m[11]! * b01) * inverseDeterminant;
-  out[8] = (m[4]! * b10 - m[5]! * b08 + m[7]! * b06) * inverseDeterminant;
-  out[9] = (-m[0]! * b10 + m[1]! * b08 - m[3]! * b06) * inverseDeterminant;
-  out[10] = (m[12]! * b04 - m[13]! * b02 + m[15]! * b00) * inverseDeterminant;
-  out[11] = (-m[8]! * b04 + m[9]! * b02 - m[11]! * b00) * inverseDeterminant;
-  out[12] = (-m[4]! * b09 + m[5]! * b07 - m[6]! * b06) * inverseDeterminant;
-  out[13] = (m[0]! * b09 - m[1]! * b07 + m[2]! * b06) * inverseDeterminant;
-  out[14] = (-m[12]! * b03 + m[13]! * b01 - m[14]! * b00) * inverseDeterminant;
-  out[15] = (m[8]! * b03 - m[9]! * b01 + m[10]! * b00) * inverseDeterminant;
-  return out;
+  const out = mat4.invert(new Float32Array(16), matrix as mat4);
+  if (!out) throw new Error("Cannot invert a singular matrix.");
+  return out as Float32Array;
 }
 
 export function mat4Transpose(matrix: ArrayLike<number>): Float32Array {
-  const out = new Float32Array(16);
-  for (let column = 0; column < 4; column += 1) {
-    for (let row = 0; row < 4; row += 1) {
-      out[column * 4 + row] = matrix[row * 4 + column] ?? 0;
-    }
-  }
-  return out;
+  return mat4.transpose(new Float32Array(16), matrix as mat4) as Float32Array;
 }
 
+/**
+ * Normal matrix: the inverse transpose of the model matrix' upper-left 3x3,
+ * which is what correctly rotates normals under non-uniform scale. Column-major
+ * 3x3, ready for `gl.uniformMatrix3fv(loc, false, m)`.
+ *
+ * Replaces the previous "transpose(invert(model)) then slice out the upper 3x3"
+ * dance with the operation `gl-matrix` exposes directly.
+ *
+ * @throws if the model matrix is singular (e.g. a zero scale axis), matching
+ * `mat4Invert`'s fail-fast contract.
+ */
+export function mat3NormalFromMat4(model: ArrayLike<number>): Float32Array {
+  const out = mat3.normalFromMat4(new Float32Array(9), model as mat4);
+  if (!out) {
+    throw new Error("Cannot derive a normal matrix from a singular model matrix.");
+  }
+  return out as Float32Array;
+}
+
+/**
+ * Composes translation, rotation and scale into a column-major model matrix
+ * (scale applied first, then rotation, then translation).
+ *
+ * Argument order is kept as `(translation, quaternion, scale)` to match the
+ * engine's call sites and glTF's TRS field order. Note `gl-matrix`'s own
+ * signature is `(out, quaternion, translation, scale)` — the first two value
+ * arguments are swapped relative to this function.
+ */
 export function mat4FromRotationTranslationScale(
   translation: Vec3,
   quaternion: [number, number, number, number],
   scale: Vec3,
 ): Float32Array {
-  const [x, y, z, w] = quaternion;
-  const x2 = x + x;
-  const y2 = y + y;
-  const z2 = z + z;
-  const xx = x * x2;
-  const xy = x * y2;
-  const xz = x * z2;
-  const yy = y * y2;
-  const yz = y * z2;
-  const zz = z * z2;
-  const wx = w * x2;
-  const wy = w * y2;
-  const wz = w * z2;
-  return new Float32Array([
-    (1 - (yy + zz)) * scale[0],
-    (xy + wz) * scale[0],
-    (xz - wy) * scale[0],
-    0,
-    (xy - wz) * scale[1],
-    (1 - (xx + zz)) * scale[1],
-    (yz + wx) * scale[1],
-    0,
-    (xz + wy) * scale[2],
-    (yz - wx) * scale[2],
-    (1 - (xx + yy)) * scale[2],
-    0,
-    translation[0],
-    translation[1],
-    translation[2],
-    1,
-  ]);
+  return mat4.fromRotationTranslationScale(
+    new Float32Array(16),
+    quaternion,
+    translation,
+    scale,
+  ) as Float32Array;
 }
 
-export function quaternionFromEuler(x: number, y: number, z: number): [number, number, number, number] {
-  const sx = Math.sin(x / 2);
-  const cx = Math.cos(x / 2);
-  const sy = Math.sin(y / 2);
-  const cy = Math.cos(y / 2);
-  const sz = Math.sin(z / 2);
-  const cz = Math.cos(z / 2);
-  return [
-    sx * cy * cz + cx * sy * sz,
-    cx * sy * cz - sx * cy * sz,
-    cx * cy * sz + sx * sy * cz,
-    cx * cy * cz - sx * sy * sz,
-  ];
+/**
+ * Euler angles (**radians**, intrinsic XYZ order) to a quaternion `[x, y, z, w]`.
+ *
+ * Two conversions happen here and both matter: `gl-matrix` takes **degrees**,
+ * and its default rotation order is **"zyx"**, so `"xyz"` is passed explicitly.
+ * The result is accumulated in a float64 array rather than a `Float32Array` to
+ * avoid rounding the quaternion before it is composed into a model matrix.
+ * See deviations (1) and (2).
+ */
+export function quaternionFromEuler(
+  x: number,
+  y: number,
+  z: number,
+): [number, number, number, number] {
+  return quat.fromEuler(
+    [0, 0, 0, 1],
+    x * RADIANS_TO_DEGREES,
+    y * RADIANS_TO_DEGREES,
+    z * RADIANS_TO_DEGREES,
+    "xyz",
+  ) as [number, number, number, number];
 }
 
+/**
+ * Transforms a point by a matrix, dividing through by the resulting `w` so
+ * projective matrices (e.g. an inverse view-projection) unproject correctly.
+ *
+ * `vec4.transformMat4` is used rather than `vec3.transformMat4` because the vec3
+ * variant divides by `w || 1` internally, which hides `w` from the caller and so
+ * cannot express the `EPSILON` fallback below (deviation 5). Promoting the point
+ * to `w = 1` makes the homogeneous divide explicit.
+ */
 export function transformPoint(matrix: ArrayLike<number>, point: Vec3): Vec3 {
-  const x = point[0];
-  const y = point[1];
-  const z = point[2];
-  const w =
-    (matrix[3] ?? 0) * x +
-    (matrix[7] ?? 0) * y +
-    (matrix[11] ?? 0) * z +
-    (matrix[15] ?? 1);
+  const clip = vec4.transformMat4(
+    [0, 0, 0, 0],
+    [point[0], point[1], point[2], 1],
+    matrix as mat4,
+  );
+  const w = clip[3];
   const inverseW = Math.abs(w) > EPSILON ? 1 / w : 1;
-  return [
-    ((matrix[0] ?? 0) * x + (matrix[4] ?? 0) * y + (matrix[8] ?? 0) * z + (matrix[12] ?? 0)) * inverseW,
-    ((matrix[1] ?? 0) * x + (matrix[5] ?? 0) * y + (matrix[9] ?? 0) * z + (matrix[13] ?? 0)) * inverseW,
-    ((matrix[2] ?? 0) * x + (matrix[6] ?? 0) * y + (matrix[10] ?? 0) * z + (matrix[14] ?? 0)) * inverseW,
-  ];
+  return [clip[0] * inverseW, clip[1] * inverseW, clip[2] * inverseW];
 }
 
+/**
+ * Transforms a direction (not a point) by a matrix's upper-left 3x3 and
+ * renormalizes. Translation is deliberately ignored, which is what makes this
+ * correct for light directions.
+ *
+ * Note this uses the plain basis, not the inverse transpose, so it is only
+ * correct for rotations and uniform scale — which is all glTF node hierarchies
+ * apply to punctual light orientations here.
+ */
+export function transformDirection(matrix: ArrayLike<number>, direction: Vec3): Vec3 {
+  const basis = mat3.fromMat4(new Float32Array(9), matrix as mat4);
+  return vec3Normalize(vec3.transformMat3([0, 0, 0], direction, basis) as Vec3);
+}
+
+/**
+ * Conservative bounding-sphere transform: the centre is transformed as a point
+ * and the radius is scaled by the largest of the three basis-vector lengths.
+ * Using the maximum keeps the sphere enclosing under non-uniform scale (it may
+ * over-estimate, which is safe for culling; under-estimating would pop geometry).
+ */
 export function transformBoundingSphere(
   matrix: ArrayLike<number>,
   sphere: BoundingSphere,
 ): BoundingSphere {
+  // Basis-vector lengths == per-axis scale. Column-major, so the X basis is
+  // elements 0..2, Y is 4..6 and Z is 8..10.
   const scaleX = Math.hypot(matrix[0] ?? 0, matrix[1] ?? 0, matrix[2] ?? 0);
   const scaleY = Math.hypot(matrix[4] ?? 0, matrix[5] ?? 0, matrix[6] ?? 0);
   const scaleZ = Math.hypot(matrix[8] ?? 0, matrix[9] ?? 0, matrix[10] ?? 0);

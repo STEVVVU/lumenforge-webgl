@@ -6,8 +6,8 @@ import {
   mat4Multiply,
   mergeSpheres,
   transformBoundingSphere,
+  transformDirection,
   transformPoint,
-  vec3Normalize,
 } from "./math";
 import type {
   MaterialData,
@@ -265,6 +265,13 @@ function buildMaterials(
   return materials;
 }
 
+/**
+ * Local TRS (or explicit matrix) for a glTF node.
+ *
+ * glTF stores `node.matrix` in **column-major** order, which is the same
+ * convention the engine and `gl-matrix` use, so the 16 floats are consumed
+ * verbatim with no transpose.
+ */
 function localNodeMatrix(node: JsonRecord): Float32Array {
   if (Array.isArray(node.matrix) && node.matrix.length === 16) {
     return new Float32Array(node.matrix.map(Number));
@@ -278,20 +285,6 @@ function localNodeMatrix(node: JsonRecord): Float32Array {
   ];
   const scale = (node.scale ?? [1, 1, 1]).map(Number) as Vec3;
   return mat4FromRotationTranslationScale(translation, rotation, scale);
-}
-
-function transformDirection(matrix: ArrayLike<number>, direction: Vec3): Vec3 {
-  return vec3Normalize([
-    (matrix[0] ?? 0) * direction[0] +
-      (matrix[4] ?? 0) * direction[1] +
-      (matrix[8] ?? 0) * direction[2],
-    (matrix[1] ?? 0) * direction[0] +
-      (matrix[5] ?? 0) * direction[1] +
-      (matrix[9] ?? 0) * direction[2],
-    (matrix[2] ?? 0) * direction[0] +
-      (matrix[6] ?? 0) * direction[1] +
-      (matrix[10] ?? 0) * direction[2],
-  ]);
 }
 
 export function parseGltfDocument(
@@ -390,6 +383,8 @@ export function parseGltfDocument(
     visited.add(nodeIndex);
     const node = nodes[nodeIndex];
     assertRecord(node, `Node ${nodeIndex} is missing.`);
+    // Pre-multiplication: the node's own local transform is applied first, then
+    // the accumulated parent transform, so `parent * local` walks the hierarchy.
     const worldMatrix = mat4Multiply(parentMatrix, localNodeMatrix(node));
     if (Number.isInteger(node.mesh)) {
       const primitives = primitiveMap.get(node.mesh) ?? [];
@@ -416,6 +411,8 @@ export function parseGltfDocument(
       lights.push({
         type: light.type === "directional" ? "directional" : "point",
         name: light.name ?? `Light ${lightIndex + 1}`,
+        // KHR_lights_punctual: a light's local origin is its position, and it
+        // shines down its local -Z axis.
         position: transformPoint(worldMatrix, [0, 0, 0]),
         direction: transformDirection(worldMatrix, [0, 0, -1]),
         color: (light.color ?? [1, 1, 1]).map(Number) as Vec3,

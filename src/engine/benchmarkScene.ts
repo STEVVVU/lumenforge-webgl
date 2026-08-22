@@ -78,6 +78,9 @@ export function createBenchmarkScene(seed = 0x4c554d45): SceneAsset {
     scale: Vec3,
     rotation: Vec3 = [0, 0, 0],
   ) => {
+    // `rotation` is Euler angles in **radians**, intrinsic XYZ order (the units
+    // and order `quaternionFromEuler` documents; gl-matrix's own default is
+    // degrees + "zyx", which the math module deliberately overrides).
     const modelMatrix = mat4FromRotationTranslationScale(
       translation,
       quaternionFromEuler(...rotation),

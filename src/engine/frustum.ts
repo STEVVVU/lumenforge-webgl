@@ -13,6 +13,16 @@ function normalizePlane(plane: Plane): Plane {
   ];
 }
 
+/**
+ * Gribb-Hartmann plane extraction from a **column-major** view-projection
+ * matrix. Each clip-space bound (`-w <= x <= w`, etc.) becomes a world-space
+ * plane by adding or subtracting the w row from the corresponding row.
+ *
+ * With column-major storage a *row* is strided by 4: row 0 is elements
+ * 0/4/8/12, row 1 is 1/5/9/13, row 2 is 2/6/10/14 and the w row is 3/7/11/15.
+ * Planes are returned as inward-facing `[a, b, c, d]` where `a*x + b*y + c*z + d`
+ * is positive inside the frustum.
+ */
 export function extractFrustumPlanes(matrix: ArrayLike<number>): Plane[] {
   const m = (index: number) => matrix[index] ?? 0;
   return [

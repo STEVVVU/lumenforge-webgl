@@ -18,6 +18,10 @@ export class OrbitCamera {
   far = 100;
   fieldOfView = Math.PI / 4;
 
+  /**
+   * Orbit position in a right-handed, +Y-up world: `azimuth` sweeps the XZ
+   * plane (0 looks along +Z) and `elevation` lifts toward +Y.
+   */
   get position(): Vec3 {
     const horizontal = Math.cos(this.elevation) * this.distance;
     return [
@@ -36,6 +40,7 @@ export class OrbitCamera {
     this.far = camera.far;
   }
 
+  /** World -> view. Right-handed, +Y up, camera looking down -Z in view space. */
   viewMatrix(): Float32Array {
     return mat4LookAt(this.position, this.target, [0, 1, 0]);
   }
