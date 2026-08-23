@@ -8,7 +8,15 @@ export interface BoundingSphere {
 }
 
 export interface TexturePayload {
-  bytes: Uint8Array;
+  /**
+   * Encoded image bytes.
+   *
+   * Explicitly `ArrayBuffer`-backed (not the default `ArrayBufferLike`, which
+   * TypeScript 5.9 infers and which also admits `SharedArrayBuffer`). Every
+   * producer allocates a fresh, exactly-sized array, so `bytes.buffer` is the
+   * whole payload and can be handed to `Blob`/`createImageBitmap` directly.
+   */
+  bytes: Uint8Array<ArrayBuffer>;
   mimeType: string;
 }
 

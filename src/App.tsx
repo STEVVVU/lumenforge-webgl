@@ -25,6 +25,7 @@ import {
   useState,
   type ChangeEvent,
   type DragEvent,
+  type ReactNode,
 } from "react";
 import { createBenchmarkScene } from "./engine/benchmarkScene";
 import { loadGltfFromFile } from "./engine/gltf";
@@ -62,7 +63,7 @@ function IconButton({
   label: string;
   active?: boolean;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button

@@ -55,6 +55,20 @@
 import { mat3, mat4, quat, vec3, vec4 } from "gl-matrix";
 import type { BoundingSphere, Vec3 } from "./types";
 
+/**
+ * Column-major 4x4 matrix, explicitly backed by an `ArrayBuffer`.
+ *
+ * The explicit type argument matters: TypeScript 5.9 made the typed arrays
+ * generic over their backing buffer and infers the wider `ArrayBufferLike` (which
+ * also admits `SharedArrayBuffer`) for a bare `new Float32Array(16)`. Everything
+ * here allocates a plain `ArrayBuffer`, so saying so keeps these assignable to
+ * the renderer's fields and to `gl.uniformMatrix4fv` without casts.
+ */
+export type Mat4 = Float32Array<ArrayBuffer>;
+
+/** Column-major 3x3 matrix (the normal matrix), same buffer caveat as `Mat4`. */
+export type Mat3 = Float32Array<ArrayBuffer>;
+
 const EPSILON = 1e-8;
 const RADIANS_TO_DEGREES = 180 / Math.PI;
 
@@ -96,8 +110,8 @@ export function vec3Normalize(v: Vec3): Vec3 {
   return vec3Scale(v, 1 / length);
 }
 
-export function mat4Identity(): Float32Array {
-  return mat4.create() as Float32Array;
+export function mat4Identity(): Mat4 {
+  return mat4.create() as Mat4;
 }
 
 /**
@@ -106,8 +120,8 @@ export function mat4Identity(): Float32Array {
  * view-projection, and `mat4Multiply(parent, local)` composes a glTF node onto
  * its parent.
  */
-export function mat4Multiply(a: ArrayLike<number>, b: ArrayLike<number>): Float32Array {
-  return mat4.multiply(new Float32Array(16), a as mat4, b as mat4) as Float32Array;
+export function mat4Multiply(a: ArrayLike<number>, b: ArrayLike<number>): Mat4 {
+  return mat4.multiply(new Float32Array(16), a as mat4, b as mat4) as Mat4;
 }
 
 /**
@@ -119,14 +133,14 @@ export function mat4Perspective(
   aspect: number,
   near: number,
   far: number,
-): Float32Array {
+): Mat4 {
   return mat4.perspective(
     new Float32Array(16),
     fieldOfViewRadians,
     aspect,
     near,
     far,
-  ) as Float32Array;
+  ) as Mat4;
 }
 
 /**
@@ -140,7 +154,7 @@ export function mat4Ortho(
   top: number,
   near: number,
   far: number,
-): Float32Array {
+): Mat4 {
   return mat4.ortho(
     new Float32Array(16),
     left,
@@ -149,7 +163,7 @@ export function mat4Ortho(
     top,
     near,
     far,
-  ) as Float32Array;
+  ) as Mat4;
 }
 
 /**
@@ -157,8 +171,8 @@ export function mat4Ortho(
  * `up` as the world up hint; in the resulting view space the camera looks down
  * -Z, so the basis' third column points from `target` back toward `eye`.
  */
-export function mat4LookAt(eye: Vec3, target: Vec3, up: Vec3): Float32Array {
-  return mat4.lookAt(new Float32Array(16), eye, target, up) as Float32Array;
+export function mat4LookAt(eye: Vec3, target: Vec3, up: Vec3): Mat4 {
+  return mat4.lookAt(new Float32Array(16), eye, target, up) as Mat4;
 }
 
 /**
@@ -167,14 +181,14 @@ export function mat4LookAt(eye: Vec3, target: Vec3, up: Vec3): Float32Array {
  * @throws if the matrix is singular. `gl-matrix` signals this by returning
  * `null`; callers here rely on the throw, so it is translated (deviation 3).
  */
-export function mat4Invert(matrix: ArrayLike<number>): Float32Array {
+export function mat4Invert(matrix: ArrayLike<number>): Mat4 {
   const out = mat4.invert(new Float32Array(16), matrix as mat4);
   if (!out) throw new Error("Cannot invert a singular matrix.");
-  return out as Float32Array;
+  return out as Mat4;
 }
 
-export function mat4Transpose(matrix: ArrayLike<number>): Float32Array {
-  return mat4.transpose(new Float32Array(16), matrix as mat4) as Float32Array;
+export function mat4Transpose(matrix: ArrayLike<number>): Mat4 {
+  return mat4.transpose(new Float32Array(16), matrix as mat4) as Mat4;
 }
 
 /**
@@ -188,12 +202,12 @@ export function mat4Transpose(matrix: ArrayLike<number>): Float32Array {
  * @throws if the model matrix is singular (e.g. a zero scale axis), matching
  * `mat4Invert`'s fail-fast contract.
  */
-export function mat3NormalFromMat4(model: ArrayLike<number>): Float32Array {
+export function mat3NormalFromMat4(model: ArrayLike<number>): Mat3 {
   const out = mat3.normalFromMat4(new Float32Array(9), model as mat4);
   if (!out) {
     throw new Error("Cannot derive a normal matrix from a singular model matrix.");
   }
-  return out as Float32Array;
+  return out as Mat3;
 }
 
 /**
@@ -209,13 +223,13 @@ export function mat4FromRotationTranslationScale(
   translation: Vec3,
   quaternion: [number, number, number, number],
   scale: Vec3,
-): Float32Array {
+): Mat4 {
   return mat4.fromRotationTranslationScale(
     new Float32Array(16),
     quaternion,
     translation,
     scale,
-  ) as Float32Array;
+  ) as Mat4;
 }
 
 /**

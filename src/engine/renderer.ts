@@ -10,6 +10,8 @@ import {
   vec3Normalize,
   vec3Scale,
   vec3Subtract,
+  type Mat3,
+  type Mat4,
 } from "./math";
 import {
   fullscreenVertexShader,
@@ -137,8 +139,13 @@ export class Renderer {
   private contextLost = false;
   private uploadRevision = 0;
   private selectedObjectId: number | null = null;
-  private lastViewProjection = new Float32Array(16);
-  private lightViewProjection = new Float32Array(16);
+  // Explicit `<ArrayBuffer>` type arguments: TypeScript 5.9 made the typed
+  // arrays generic over their backing buffer and infers the wider
+  // `ArrayBufferLike` (which admits `SharedArrayBuffer`) for a bare
+  // `new Float32Array(n)`. The math module hands back plain `ArrayBuffer`-backed
+  // matrices, so the field is narrowed to match rather than widened.
+  private lastViewProjection: Mat4 = new Float32Array(16);
+  private lightViewProjection: Mat4 = new Float32Array(16);
 
   constructor(canvas: HTMLCanvasElement, callbacks: RendererCallbacks) {
     this.canvas = canvas;
@@ -538,7 +545,7 @@ export class Renderer {
    * perpendicular to the surface under non-uniform scale. Column-major 3x3 for
    * `uniformMatrix3fv(..., transpose = false)`.
    */
-  private normalMatrix(model: Float32Array): Float32Array {
+  private normalMatrix(model: Float32Array): Mat3 {
     return mat3NormalFromMat4(model);
   }
 
@@ -549,7 +556,7 @@ export class Renderer {
     this.gl.drawElements(this.gl.TRIANGLES, mesh.indexCount, this.gl.UNSIGNED_INT, 0);
   }
 
-  private computeLightMatrix(scene: SceneAsset): Float32Array {
+  private computeLightMatrix(scene: SceneAsset): Mat4 {
     const directional = scene.lights.find((light) => light.type === "directional");
     const direction = vec3Normalize(directional?.direction ?? [-0.5, -1, -0.4]);
     const radius = Math.max(scene.bounds.radius, 4);
