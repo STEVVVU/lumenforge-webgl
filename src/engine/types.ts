@@ -99,3 +99,4 @@ export interface RendererOptions {
   animateLights: boolean;
   debugMode: 0 | 1 | 2 | 3;
 }
+
