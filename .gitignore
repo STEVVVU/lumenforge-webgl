@@ -12,3 +12,4 @@ artifacts/*.json
 !artifacts/browser-mobile.png
 !artifacts/browser-gltf.png
 !artifacts/browser-verification.json
+artifacts/playwright/

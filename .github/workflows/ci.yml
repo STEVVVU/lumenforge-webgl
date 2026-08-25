@@ -11,16 +11,52 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Vite 7 requires ^20.19 || >=22.12, so a bare "20" can resolve to a
+          # too-old patch. 22 is the current LTS and satisfies every engine range
+          # declared in package.json.
+          node-version: "22"
           cache: npm
+      # `npm ci` installs devDependencies by default, which is what supplies
+      # eslint / typescript / vitest / @playwright/test. Do not add --omit=dev.
       - run: npm ci
+
+      # Guard against a vacuously-passing suite. A runner that discovers zero
+      # tests still exits 0 and looks green, so the discovered counts are
+      # asserted before the suites run rather than trusted afterwards.
+      - name: Assert test discovery is non-empty
+        run: |
+          set -euo pipefail
+          unit=$(npx vitest list --json \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).length))')
+          echo "vitest discovered $unit test(s)"
+          test "$unit" -gt 0
+          browser=$(npx playwright test --list --reporter=json \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);const walk=x=>(x.specs??[]).length+(x.suites??[]).reduce((n,y)=>n+walk(y),0);console.log(j.suites.reduce((n,f)=>n+walk(f),0))})')
+          echo "playwright discovered $browser test(s)"
+          test "$browser" -gt 0
+
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:run
       - run: npm run build
+
+      # Browsers are NOT bundled with the npm package; without this step
+      # `playwright test` fails with "Executable doesn't exist".
+      - run: npx playwright install --with-deps chromium
       - run: npm run browser:verify
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-verification
+          path: |
+            artifacts/browser-*.png
+            artifacts/browser-verification.json
+            artifacts/playwright/
+          if-no-files-found: warn
+          retention-days: 7
