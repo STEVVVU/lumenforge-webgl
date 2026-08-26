@@ -816,15 +816,29 @@ export class Renderer {
     };
   }
 
-  private disposeSceneResources(): void {
-    const gl = this.gl;
-    this.gpuMeshes.forEach((mesh) => {
-      gl.deleteVertexArray(mesh.vao);
-      mesh.buffers.forEach((buffer) => gl.deleteBuffer(buffer));
-    });
-    this.gpuMaterials.forEach((material) => {
-      if (material.ownsTexture) gl.deleteTexture(material.texture);
-    });
+  /**
+   * Releases the per-scene GPU objects (mesh VAOs/buffers and owned textures).
+   *
+   * `releaseHandles` exists for the context-loss path. When the context is lost
+   * every object it owned is already destroyed, and the handles this renderer
+   * still holds belong to that dead context. Calling `gl.deleteVertexArray` /
+   * `deleteBuffer` / `deleteTexture` on them raises
+   * `INVALID_OPERATION: object does not belong to this context` once per handle
+   * and latches `gl.getError()`, which makes a genuinely-recovered renderer look
+   * broken to any error check. So on loss the references are dropped without
+   * issuing delete calls; the driver has already reclaimed the memory.
+   */
+  private disposeSceneResources(releaseHandles = true): void {
+    if (releaseHandles) {
+      const gl = this.gl;
+      this.gpuMeshes.forEach((mesh) => {
+        gl.deleteVertexArray(mesh.vao);
+        mesh.buffers.forEach((buffer) => gl.deleteBuffer(buffer));
+      });
+      this.gpuMaterials.forEach((material) => {
+        if (material.ownsTexture) gl.deleteTexture(material.texture);
+      });
+    }
     this.gpuMeshes = [];
     this.gpuMaterials = [];
   }
@@ -833,6 +847,11 @@ export class Renderer {
     event.preventDefault();
     this.contextLost = true;
     this.uploadRevision += 1;
+    // Drop the now-dangling scene handles WITHOUT deleting them: they belonged to
+    // the context that just died. Doing it here (rather than leaving it to the
+    // uploadScene() on restore) is what keeps the restored context's error state
+    // clean. See disposeSceneResources().
+    this.disposeSceneResources(false);
     this.callbacks.onContextState(true, "WebGL context lost. Waiting for browser recovery.");
   };
 
@@ -840,6 +859,9 @@ export class Renderer {
     this.contextLost = false;
     this.callbacks.onContextState(false, "Rebuilding GPU resources.");
     try {
+      // Reallocating the G-buffer and picking targets is part of initialize();
+      // width/height are unchanged, so the resize() below would early-return and
+      // must not be relied on for that.
       this.initialize();
       const scene = this.scene;
       if (scene) {
