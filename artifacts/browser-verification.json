@@ -1,97 +1,117 @@
 {
-  "generatedAt": "2026-07-17T05:47:22.380Z",
-  "chromePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "generatedAt": "2026-07-29T05:42:34.786Z",
+  "note": "Captured with @playwright/test against the production build on ANGLE SwiftShader. Timings are software-rasterizer values and are not hardware performance measurements.",
   "desktop": {
-    "viewport": {
-      "width": 1440,
-      "height": 900
+    "webgl2": true,
+    "width": 1440,
+    "height": 900,
+    "cssWidth": 1440,
+    "cssHeight": 900,
+    "nonBlankRatio": 1,
+    "distinct": 273,
+    "renderer": "WebKit WebGL",
+    "glError": 0
+  },
+  "workload": {
+    "width": 1440,
+    "height": 900,
+    "visible": 49,
+    "total": 50,
+    "lights": 13,
+    "fps": 30,
+    "cpuMs": 0.4,
+    "gpuMs": 438.25,
+    "drawCalls": 100,
+    "triangles": "37K",
+    "culled": 1
+  },
+  "frameTime": {
+    "samples": [
+      0.6,
+      0.3,
+      0.4,
+      0.5,
+      0.6
+    ],
+    "medianCpuMs": 0.5
+  },
+  "picking": {
+    "centre": 18,
+    "repeat": 18,
+    "lowEdge": 1
+  },
+  "debugBuffers": {
+    "Albedo": {
+      "distinct": 6,
+      "glError": 0
     },
-    "canvas": {
+    "Normals": {
+      "distinct": 174,
+      "glError": 0
+    },
+    "Depth": {
+      "distinct": 2,
+      "glError": 0
+    },
+    "Beauty": {
+      "distinct": 273,
+      "glError": 0
+    }
+  },
+  "contextRecovery": "restored",
+  "resize": {
+    "before": {
       "webgl2": true,
       "width": 1440,
       "height": 900,
       "cssWidth": 1440,
       "cssHeight": 900,
       "nonBlankRatio": 1,
-      "distinct": 287,
-      "renderer": "WebKit WebGL"
+      "distinct": 273,
+      "renderer": "WebKit WebGL",
+      "glError": 0
     },
-    "resizedCanvas": {
-      "webgl2": true,
-      "width": 1303,
-      "height": 817,
-      "cssWidth": 1303,
-      "cssHeight": 817,
-      "nonBlankRatio": 1,
-      "distinct": 278,
-      "renderer": "WebKit WebGL"
-    },
-    "panelCount": 2,
-    "source": "benchmark",
-    "selectionWorked": true,
-    "contextRecovery": "restored",
-    "consoleErrors": []
-  },
-  "mobile": {
-    "viewport": {
-      "width": 390,
-      "height": 844
-    },
-    "canvas": {
-      "webgl2": true,
-      "width": 390,
-      "height": 844,
-      "cssWidth": 390,
-      "cssHeight": 844,
-      "nonBlankRatio": 1,
-      "distinct": 237,
-      "renderer": "WebKit WebGL"
-    },
-    "resizedCanvas": {
-      "webgl2": true,
-      "width": 320,
-      "height": 761,
-      "cssWidth": 320,
-      "cssHeight": 761,
-      "nonBlankRatio": 1,
-      "distinct": 238,
-      "renderer": "WebKit WebGL"
-    },
-    "panelCount": 0,
-    "source": "benchmark",
-    "selectionWorked": null,
-    "contextRecovery": null,
-    "consoleErrors": []
-  },
-  "gltf": {
-    "viewport": {
-      "width": 1024,
-      "height": 720
-    },
-    "canvas": {
+    "after": {
       "webgl2": true,
       "width": 1024,
       "height": 720,
       "cssWidth": 1024,
       "cssHeight": 720,
+      "nonBlankRatio": 1,
+      "distinct": 276,
+      "renderer": "WebKit WebGL",
+      "glError": 0
+    }
+  },
+  "gltf": {
+    "status": {
+      "width": 1440,
+      "height": 900,
+      "visible": 1,
+      "total": 1,
+      "lights": 2
+    },
+    "sample": {
+      "webgl2": true,
+      "width": 1440,
+      "height": 900,
+      "cssWidth": 1440,
+      "cssHeight": 900,
       "nonBlankRatio": 0.8787878787878788,
       "distinct": 5,
-      "renderer": "WebKit WebGL"
-    },
-    "resizedCanvas": {
-      "webgl2": true,
-      "width": 887,
-      "height": 637,
-      "cssWidth": 887,
-      "cssHeight": 637,
-      "nonBlankRatio": 0.8823529411764706,
-      "distinct": 5,
-      "renderer": "WebKit WebGL"
-    },
-    "panelCount": 2,
-    "source": "gltf-fixture",
-    "selectionWorked": null,
-    "contextRecovery": null,
-    "consoleErrors": []
+      "renderer": "WebKit WebGL",
+      "glError": 0
+    }
+  },
+  "mobile": {
+    "webgl2": true,
+    "width": 390,
+    "height": 844,
+    "cssWidth": 390,
+    "cssHeight": 844,
+    "nonBlankRatio": 1,
+    "distinct": 274,
+    "renderer": "WebKit WebGL",
+    "glError": 0
   }
 }

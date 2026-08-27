@@ -71,25 +71,52 @@ framebuffers, queries, and vertex arrays. A scene upload uses a revision token
 so a stale asynchronous texture decode cannot replace a newer scene.
 
 The canvas handles `webglcontextlost` and `webglcontextrestored`. Loss pauses
-render work and reports status to the shell. Restoration rebuilds programs,
-framebuffers, timer support, mesh buffers, and material textures from retained
-CPU scene data.
+render work, reports status to the shell, and **drops** the scene's GPU handles
+without calling `delete*` on them: those objects belonged to the context that just
+died, and deleting them afterwards raises `INVALID_OPERATION` and latches
+`gl.getError()` so every later error check reports a false failure. The
+`releaseHandles` flag on `disposeSceneResources` distinguishes this case from an
+ordinary scene swap, where the handles are still live and must be deleted.
+Restoration rebuilds programs, framebuffers, render targets, timer support, mesh
+buffers, and material textures from retained CPU scene data.
 
 `ResizeObserver` drives drawing-buffer allocation. Pixel ratio is capped at 2
 to constrain fill cost on dense displays.
 
 ## Testing strategy
 
-Node-based tests cover matrix inversion/composition, conservative transformed
-bounds, frustum inclusion, deterministic workload generation, glTF accessor
-parsing, generated normals, unsupported topology errors, and GLB chunk parsing.
-Browser verification separately checks real shader compilation and nonblank
-canvas output because those require a WebGL2 implementation. The Chrome harness
-also exercises a self-contained glTF upload, GPU picking, debug-buffer
-switching, drawing-buffer resize, mobile panel layout, and simulated context
-loss/restoration. Screenshots and structured results are retained in
-`artifacts/` for review.
+Two tiers, split by what each can actually observe.
 
-The automated browser path forces SwiftShader for deterministic availability.
-Its frame and timer values are not treated as hardware benchmarks; only
-functional rendering evidence is claimed from that environment.
+**Node tests (Vitest, 36 across 4 files).** Matrix inversion/composition and the
+documented `gl-matrix` convention deviations, conservative transformed bounds,
+frustum inclusion, deterministic workload generation, glTF accessor parsing,
+generated normals, unsupported topology errors, and GLB chunk parsing.
+`tests/gltfConformance.test.ts` cross-checks the hand-written parser against
+`@gltf-transform/core`, which is an independent implementation and therefore a
+better oracle than more tests written by the same author as the parser.
+`@gltf-transform/core` is a devDependency; the runtime path is still
+`src/engine/gltf.ts`.
+
+**Browser tests (`@playwright/test`, 12 across 3 files).** Shader compilation and
+framebuffer contents cannot be observed without a real WebGL2 implementation, so
+these run headless Chromium against the **production bundle** served by
+`vite preview`. They assert a shaded frame and `GL_NO_ERROR`, the 50-object /
+13-light workload with draw calls as an exact identity
+(`visible + objects + 1`), the CPU frame budget, GPU picking including stability
+and distinctness, all four deferred debug buffers, `WEBGL_lose_context`
+restoration, backing-buffer resize, self-contained glTF upload, and narrow-viewport
+panel collapse. A third spec regenerates the three review screenshots, overwriting
+them in place so the repository does not accumulate binaries. Structured results
+land in `artifacts/browser-verification.json`.
+
+Deliberately **not** golden-image assertions: SwiftShader output shifts between
+versions, so the specs assert structural properties (non-blank ratio, distinct
+quantized colour counts, error state) and the screenshots are review evidence
+rather than a pass/fail gate.
+
+The browser path forces SwiftShader for deterministic availability. Its frame and
+timer values are not treated as hardware benchmarks; only functional rendering
+evidence is claimed from that environment. Where a *comparison* between two builds
+is needed - as for the `gl-matrix` migration - determinism is what makes a
+pixel-exact diff against a previous build meaningful, and that comparison is
+recorded in `artifacts/verification.md`.
