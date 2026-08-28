@@ -326,6 +326,32 @@ test.describe("responsive shell", () => {
 });
 
 /**
+ * Formats an instant as ISO 8601 retaining the machine's UTC offset, e.g.
+ * `2026-07-28T23:42:34.786-07:00`.
+ *
+ * `Date.prototype.toISOString()` is deliberately NOT used here. It always
+ * renders in UTC, so any run started in the evening west of Greenwich is stamped
+ * with *tomorrow's* calendar date: a real 22:42 PDT run wrote
+ * `2026-07-29T05:42:34.786Z`, which contradicted the `2026-07-28` date in
+ * `artifacts/verification.md` and the README and read as a future-dated
+ * measurement. Keeping the offset makes the local date recoverable while the
+ * instant stays unambiguous.
+ */
+function toLocalIso(instant: Date): string {
+  // getTimezoneOffset() returns minutes *behind* UTC, so the sign is inverted.
+  const offsetMinutes = -instant.getTimezoneOffset();
+  const sign = offsetMinutes < 0 ? "-" : "+";
+  const absOffset = Math.abs(offsetMinutes);
+  const pad = (value: number, width = 2) => String(value).padStart(width, "0");
+  return (
+    `${instant.getFullYear()}-${pad(instant.getMonth() + 1)}-${pad(instant.getDate())}` +
+    `T${pad(instant.getHours())}:${pad(instant.getMinutes())}:${pad(instant.getSeconds())}` +
+    `.${pad(instant.getMilliseconds(), 3)}` +
+    `${sign}${pad(Math.floor(absOffset / 60))}:${pad(absOffset % 60)}`
+  );
+}
+
+/**
  * Writes the machine-readable record the README cites. Overwrites the existing
  * artifact rather than adding new files, so the repo does not accumulate
  * screenshots.
@@ -336,7 +362,7 @@ test.afterAll(async () => {
     resolve(ARTIFACTS, "browser-verification.json"),
     `${JSON.stringify(
       {
-        generatedAt: new Date().toISOString(),
+        generatedAt: toLocalIso(new Date()),
         note:
           "Captured with @playwright/test against the production build on ANGLE " +
           "SwiftShader. Timings are software-rasterizer values and are not " +

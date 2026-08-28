@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T05:42:34.786Z",
+  "generatedAt": "2026-07-28T23:42:37.864-07:00",
   "note": "Captured with @playwright/test against the production build on ANGLE SwiftShader. Timings are software-rasterizer values and are not hardware performance measurements.",
   "desktop": {
     "webgl2": true,
@@ -18,22 +18,22 @@
     "visible": 49,
     "total": 50,
     "lights": 13,
-    "fps": 30,
-    "cpuMs": 0.4,
-    "gpuMs": 438.25,
+    "fps": 29,
+    "cpuMs": 0.6,
+    "gpuMs": 349.04,
     "drawCalls": 100,
     "triangles": "37K",
     "culled": 1
   },
   "frameTime": {
     "samples": [
-      0.6,
-      0.3,
-      0.4,
+      9.5,
+      0.9,
+      1.1,
       0.5,
-      0.6
+      1.2
     ],
-    "medianCpuMs": 0.5
+    "medianCpuMs": 1.1
   },
   "picking": {
     "centre": 18,
