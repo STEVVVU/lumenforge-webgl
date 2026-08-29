@@ -28,17 +28,36 @@ jobs:
       # Guard against a vacuously-passing suite. A runner that discovers zero
       # tests still exits 0 and looks green, so the discovered counts are
       # asserted before the suites run rather than trusted afterwards.
-      - name: Assert test discovery is non-empty
+      #
+      # The floors are the real verified counts, not `> 0`. A `> 0` floor still
+      # passes when a suite collapses from 36 tests to 1 - a bad glob, a stray
+      # `.only`, or a rename that silently drops a whole file - so it catches
+      # only total disappearance, which is the least likely failure mode. These
+      # are `-ge` lower bounds rather than equalities so that adding a test does
+      # not fail CI before the floor is bumped; raise them deliberately when the
+      # suite grows.
+      #
+      # The flags are load-bearing. `vitest list --json` emits JSON, whereas
+      # `vitest list --reporter=json` prints human-readable text that crashes
+      # JSON.parse. For Playwright it is the reverse: `--list --reporter=json`
+      # is the JSON form. Both invocations below were run locally and verified
+      # to print 36 and 12 respectively.
+      - name: Assert test discovery meets the verified floors
+        env:
+          # Verified 2026-07-28: 36 vitest tests across 4 files and 12
+          # Playwright tests across 3 files. See artifacts/verification.md.
+          MIN_UNIT_TESTS: "36"
+          MIN_BROWSER_TESTS: "12"
         run: |
           set -euo pipefail
           unit=$(npx vitest list --json \
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).length))')
-          echo "vitest discovered $unit test(s)"
-          test "$unit" -gt 0
+          echo "vitest discovered $unit test(s); floor is $MIN_UNIT_TESTS"
+          test "$unit" -ge "$MIN_UNIT_TESTS"
           browser=$(npx playwright test --list --reporter=json \
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);const walk=x=>(x.specs??[]).length+(x.suites??[]).reduce((n,y)=>n+walk(y),0);console.log(j.suites.reduce((n,f)=>n+walk(f),0))})')
-          echo "playwright discovered $browser test(s)"
-          test "$browser" -gt 0
+          echo "playwright discovered $browser test(s); floor is $MIN_BROWSER_TESTS"
+          test "$browser" -ge "$MIN_BROWSER_TESTS"
 
       - run: npm run lint
       - run: npm run typecheck
