@@ -1,9 +1,6 @@
-# LumenForge WebGL
+# WebGL Rendering Engine
 
-LumenForge is a production-style 3D asset inspection tool built directly on
-WebGL2. It loads glTF 2.0/GLB assets, renders metallic-roughness materials
-through a deferred Cook-Torrance pipeline, exposes scene and material data, and
-reports CPU/GPU frame diagnostics.
+A WebGL2 rendering engine and glTF viewer with lighting, shadows, object picking, frustum culling, and CPU/GPU frame diagnostics.
 
 The default workload is a deterministic 50-object material grid with 13 lights.
 It makes rendering and culling changes comparable without depending on a
