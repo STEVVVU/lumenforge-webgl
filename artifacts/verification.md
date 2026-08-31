@@ -7,6 +7,13 @@ project supports Node.js 20 or newer; CI runs 22.
 This record supersedes the 2026-07-16 one, which was produced by the removed
 `scripts/verify-browser.mjs` before the gl-matrix, React 19 and Playwright work.
 
+`browser-verification.json`'s `generatedAt` is written with the machine's UTC
+offset (`2026-07-28T23:42:37.864-07:00`) rather than via `toISOString()`. The
+earlier artifact read `2026-07-29T05:42:34.786Z` - the same instant, but a run
+at 22:42 PDT rendered in UTC lands on the *next* calendar day, so the artifact
+appeared to be dated tomorrow and to contradict the date above. Keeping the
+offset makes the artifact date and this record agree by construction.
+
 ## Static and unit verification
 
 | Command | Exit | Result |
@@ -15,7 +22,7 @@ This record supersedes the 2026-07-16 one, which was produced by the removed
 | `npm run typecheck` | 0 | tsc 5.9 project build (also verified with `-b --force`) |
 | `npx vitest run` | 0 | 36 passed, 4 files, 0 failed, 0 skipped |
 | `npx vite build` | 0 | 1818 modules transformed |
-| `npm run browser:verify` | 0 | 12 passed, 3 files, 3.5 min |
+| `npm run browser:verify` | 0 | 12 passed, 3 files, 4.8 min |
 
 Bundle: 264.17 kB JS (82.74 kB gzip), 9.59 kB CSS (2.70 kB gzip).
 
@@ -39,7 +46,7 @@ All 12 tests passed:
 | --- | --- |
 | Shaded frame, no GL/console errors | 1440x900, nonBlankRatio 1.00, 273 distinct colours, `glError` 0 |
 | Deterministic workload preserved | 50 objects, 13 lights, 49 visible, 1 culled, 100 draw calls, 37K triangles |
-| CPU frame budget | median 0.5 ms against a 60 ms software-rasterizer ceiling |
+| CPU frame budget | median 0.5 ms (0.5-1.1 over 6 runs) against a 60 ms software-rasterizer ceiling |
 | GPU picking | centre id 18, repeat 18 (stable), low edge id 1 (distinct) |
 | Deferred debug buffers | Albedo/Normals/Depth/Beauty all `glError` 0, non-blank |
 | Context loss + restore | `restored`, `glError` 0, picking works again, no orphan-handle warnings |
@@ -63,6 +70,23 @@ performance claims.
 Method: 6 independent runs per build (fresh browser and page each), 3 s warm-up,
 then ~6 s of steady-state sampling with light animation running. Cells are the
 median of the 6 per-run medians with the min-max envelope of those medians.
+
+The Playwright suite's own `frameTime` reading (in `browser-verification.json`)
+is a shorter 5-sample check against the 60 ms budget, not the table below, and it
+is noisier for it. Re-running it 7 times gave per-run medians of 1.1, 0.5, 0.5,
+0.7, 0.5, 0.5 and 0.6 ms: **median 0.5 ms, envelope 0.5-1.1**. The 1.1 ms run
+opened with a 9.5 ms cold sample, which is JIT and shader-cache warm-up rather
+than renderer cost - the dedicated harness below uses a 3 s warm-up precisely to
+exclude it. The artifact necessarily records whichever single run wrote it last,
+so this envelope, not that one number, is the claim.
+
+Two overlay-derived fields in the artifact (`workload.gpuMs` and `workload.fps`)
+are single instantaneous reads of the diagnostics overlay rather than sampled
+series, so they swing widely between runs: two full suite runs 24 minutes apart
+on identical code recorded 349.04 ms / 29 fps and 792.01 ms / 47 fps, while every
+non-timing field was byte-identical across both. The GPU figure worth reading is
+the 6-run envelope in the table below; the artifact's `gpuMs` is a spot reading,
+not a measurement, and is not cited as one anywhere.
 
 | Metric | `main` | `feat/modernize-stack` |
 | --- | ---: | ---: |

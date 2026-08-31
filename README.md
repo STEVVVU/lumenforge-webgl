@@ -119,9 +119,18 @@ the previous 2026-07-16 figures are superseded.
 | `npm run lint` (ESLint 10) | exit 0, no findings |
 | `npm run typecheck` (tsc 5.9, `-b --force`) | exit 0 |
 | `npx vitest run` | **36 passed / 4 files** (was 9 / 3) |
-| `npx vite build` | exit 0 |
+| `npx vite build` | exit 0, 1818 modules transformed |
 | Bundle | **264.17 kB JS (82.74 kB gzip)**, 9.59 kB CSS (2.70 kB gzip) |
-| Playwright suite | **12 passed / 3 files**, 3.5 min |
+| Playwright suite | **12 passed / 3 files**, 4.8 min |
+
+The two test counts are **self-verifying rather than a point-in-time claim**:
+`.github/workflows/ci.yml` asserts discovered counts of at least 36 vitest and
+12 Playwright tests *before* the suites run, so CI fails if either number in
+this table stops being true. A `> 0` floor would not have done that - it passes
+a suite that collapses from 36 tests to 1 - so both floors were negative-tested
+by deleting a test file and confirming a non-zero exit. The bundle size is a
+single reproducible build output (`npx vite build`), not a timing, so it needs
+no envelope.
 
 The bundle grew from 211.75 kB (66.26 kB gzip) and it is worth being precise
 about why, because "we upgraded and it got 25% bigger" deserves a cause rather
